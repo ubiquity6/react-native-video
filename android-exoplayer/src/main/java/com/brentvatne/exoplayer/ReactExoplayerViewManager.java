@@ -19,7 +19,16 @@ import java.util.Map;
 
 import javax.annotation.Nullable;
 
+import com.google.android.exoplayer2.upstream.cache.SimpleCache;
+
 public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerView> {
+
+    private SimpleCache cache;
+
+    public ReactExoplayerViewManager (SimpleCache cache) {
+        super();
+        this.cache = cache;
+    }
 
     private static final String REACT_CLASS = "RCTVideo";
 
@@ -67,7 +76,7 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
 
     @Override
     protected ReactExoplayerView createViewInstance(ThemedReactContext themedReactContext) {
-        return new ReactExoplayerView(themedReactContext);
+        return new ReactExoplayerView(themedReactContext, cache);
     }
 
     @Override
