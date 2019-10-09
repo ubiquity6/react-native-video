@@ -75,6 +75,39 @@ import java.lang.Object;
 import java.util.ArrayList;
 import java.util.Locale;
 
+import com.google.android.exoplayer2.upstream.cache.SimpleCache;
+import com.google.android.exoplayer2.upstream.DataSource;
+import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter;
+import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
+import com.google.android.exoplayer2.upstream.HttpDataSource;
+import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory;
+import com.google.android.exoplayer2.upstream.cache.CacheDataSink;
+import com.google.android.exoplayer2.upstream.cache.CacheDataSource;
+import com.google.android.exoplayer2.upstream.FileDataSource;
+
+class CacheDataSourceFactory implements DataSource.Factory {
+    private final DefaultDataSourceFactory defaultDatasourceFactory;
+    private final long maxFileSize;
+    private final SimpleCache cache;
+
+    CacheDataSourceFactory(Context context, long maxFileSize, DefaultBandwidthMeter bandwidthMeter, SimpleCache cache) {
+        super();
+        this.maxFileSize = maxFileSize;
+        this.cache = cache;
+        String userAgent = Util.getUserAgent(context, "ReactNativeVideo");
+        defaultDatasourceFactory = new DefaultDataSourceFactory(context,
+                bandwidthMeter,
+                new DefaultHttpDataSourceFactory(userAgent, bandwidthMeter));
+    }
+
+    @Override
+    public DataSource createDataSource() {
+        return new CacheDataSource(cache, defaultDatasourceFactory.createDataSource(),
+                new FileDataSource(), new CacheDataSink(cache, maxFileSize),
+                CacheDataSource.FLAG_BLOCK_ON_CACHE | CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR, null);
+    }
+}
+
 @SuppressLint("ViewConstructor")
 class ReactExoplayerView extends FrameLayout implements
         LifecycleEventListener,
@@ -152,6 +185,8 @@ class ReactExoplayerView extends FrameLayout implements
     private final AudioManager audioManager;
     private final AudioBecomingNoisyReceiver audioBecomingNoisyReceiver;
 
+    private final SimpleCache cache;
+
     private final Handler progressHandler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
@@ -172,10 +207,10 @@ class ReactExoplayerView extends FrameLayout implements
         }
     };
 
-    public ReactExoplayerView(ThemedReactContext context) {
+    public ReactExoplayerView(ThemedReactContext context, SimpleCache cache) {
         super(context);
         this.themedReactContext = context;
-
+        this.cache = cache;
         this.eventEmitter = new VideoEventEmitter(context);
 
         createViews();
@@ -413,7 +448,7 @@ class ReactExoplayerView extends FrameLayout implements
                         minLoadRetryCount, DashMediaSource.DEFAULT_LIVE_PRESENTATION_DELAY_MS,
                         mainHandler, null);
             case C.TYPE_HLS:
-                return new HlsMediaSource(uri, mediaDataSourceFactory, 
+                return new HlsMediaSource(uri, new CacheDataSourceFactory(themedReactContext, 10 * 1024 * 1024, BANDWIDTH_METER, this.cache),
                         minLoadRetryCount, mainHandler, null);
             case C.TYPE_OTHER:
                 return new ExtractorMediaSource(uri, mediaDataSourceFactory, new DefaultExtractorsFactory(),
