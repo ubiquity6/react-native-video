@@ -19,14 +19,14 @@ import java.util.Map;
 
 import javax.annotation.Nullable;
 
+import com.google.android.exoplayer2.upstream.cache.Cache;
 import com.google.android.exoplayer2.upstream.cache.SimpleCache;
 
 public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerView> {
 
-    private SimpleCache cache;
+    private Cache cache;
 
-    public ReactExoplayerViewManager (SimpleCache cache) {
-        super();
+    public ReactExoplayerViewManager(Cache cache) {
         this.cache = cache;
     }
 

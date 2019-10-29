@@ -54,7 +54,6 @@ import com.google.android.exoplayer2.source.smoothstreaming.DefaultSsChunkSource
 import com.google.android.exoplayer2.source.smoothstreaming.SsMediaSource;
 import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection;
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector;
-import com.google.android.exoplayer2.trackselection.FixedTrackSelection;
 import com.google.android.exoplayer2.trackselection.MappingTrackSelector;
 import com.google.android.exoplayer2.trackselection.TrackSelection;
 import com.google.android.exoplayer2.trackselection.TrackSelectionArray;
@@ -62,7 +61,7 @@ import com.google.android.exoplayer2.upstream.DataSource;
 import com.google.android.exoplayer2.upstream.DefaultAllocator;
 import com.google.android.exoplayer2.upstream.BandwidthMeter;
 import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter;
-import com.google.android.exoplayer2.util.MimeTypes;
+import com.google.android.exoplayer2.upstream.cache.Cache;
 import com.google.android.exoplayer2.util.Util;
 import com.google.android.exoplayer2.ui.PlayerControlView;
 
@@ -76,37 +75,7 @@ import java.util.ArrayList;
 import java.util.Locale;
 
 import com.google.android.exoplayer2.upstream.cache.SimpleCache;
-import com.google.android.exoplayer2.upstream.DataSource;
-import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter;
-import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
-import com.google.android.exoplayer2.upstream.HttpDataSource;
-import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory;
-import com.google.android.exoplayer2.upstream.cache.CacheDataSink;
-import com.google.android.exoplayer2.upstream.cache.CacheDataSource;
-import com.google.android.exoplayer2.upstream.FileDataSource;
 
-class CacheDataSourceFactory implements DataSource.Factory {
-    private final DefaultDataSourceFactory defaultDatasourceFactory;
-    private final long maxFileSize;
-    private final SimpleCache cache;
-
-    CacheDataSourceFactory(Context context, long maxFileSize, DefaultBandwidthMeter bandwidthMeter, SimpleCache cache) {
-        super();
-        this.maxFileSize = maxFileSize;
-        this.cache = cache;
-        String userAgent = Util.getUserAgent(context, "ReactNativeVideo");
-        defaultDatasourceFactory = new DefaultDataSourceFactory(context,
-                bandwidthMeter,
-                new DefaultHttpDataSourceFactory(userAgent, bandwidthMeter));
-    }
-
-    @Override
-    public DataSource createDataSource() {
-        return new CacheDataSource(cache, defaultDatasourceFactory.createDataSource(),
-                new FileDataSource(), new CacheDataSink(cache, maxFileSize),
-                CacheDataSource.FLAG_BLOCK_ON_CACHE | CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR, null);
-    }
-}
 
 @SuppressLint("ViewConstructor")
 class ReactExoplayerView extends FrameLayout implements
@@ -123,6 +92,7 @@ class ReactExoplayerView extends FrameLayout implements
     private static final CookieManager DEFAULT_COOKIE_MANAGER;
     private static final int SHOW_PROGRESS = 1;
     private static final int REPORT_BANDWIDTH = 1;
+    private static final int MAX_FILE_SIZE = 2 * 1024 * 1024;
 
     static {
         DEFAULT_COOKIE_MANAGER = new CookieManager();
@@ -185,7 +155,7 @@ class ReactExoplayerView extends FrameLayout implements
     private final AudioManager audioManager;
     private final AudioBecomingNoisyReceiver audioBecomingNoisyReceiver;
 
-    private final SimpleCache cache;
+    private final Cache cache;
 
     private final Handler progressHandler = new Handler() {
         @Override
@@ -207,7 +177,7 @@ class ReactExoplayerView extends FrameLayout implements
         }
     };
 
-    public ReactExoplayerView(ThemedReactContext context, SimpleCache cache) {
+    public ReactExoplayerView(ThemedReactContext context, Cache cache) {
         super(context);
         this.themedReactContext = context;
         this.cache = cache;
@@ -448,7 +418,7 @@ class ReactExoplayerView extends FrameLayout implements
                         minLoadRetryCount, DashMediaSource.DEFAULT_LIVE_PRESENTATION_DELAY_MS,
                         mainHandler, null);
             case C.TYPE_HLS:
-                return new HlsMediaSource(uri, new CacheDataSourceFactory(themedReactContext, 10 * 1024 * 1024, BANDWIDTH_METER, this.cache),
+                return new HlsMediaSource(uri, DataSourceUtil.getCacheDataSourceFactory(cache, MAX_FILE_SIZE, mediaDataSourceFactory),
                         minLoadRetryCount, mainHandler, null);
             case C.TYPE_OTHER:
                 return new ExtractorMediaSource(uri, mediaDataSourceFactory, new DefaultExtractorsFactory(),
